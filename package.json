@@ -1,0 +1,17 @@
+{
+  "name": "dive-publish-aws",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Austin Wright",
+  "license": "Unlicense",
+  "dependencies": {
+    "aws-sdk": "^2.422.0",
+    "bluebird": "^3.5.3",
+    "commander": "^2.19.0",
+    "dive-httpd": "^0.0.9",
+    "http-transform": "^0.0.4"
+  }
+}
