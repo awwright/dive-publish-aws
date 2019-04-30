@@ -23,8 +23,7 @@ args.parse(process.argv);
 
 if (args.args.length !== 1) return void args.help();
 
-const serverOptions = require(path.resolve(args.args[0]));
-const router = serverOptions.routes;
+const app = require(path.resolve(args.args[0]));
 
 const argbase = args.base && args.base[args.base.length-1]=='/' ? args.base.substring(0, args.base.length-1) : args.base ;
 const base = argbase || 'http://localhost';
@@ -48,20 +47,7 @@ ReadResponse.prototype._flush = function _flush(callback){
 	callback();
 };
 
-console.log('Resources:');
-
-var resources = [];
-Promise.all(router.routes.map(function(route){
-	// console.log('# '+route.template);
-	// console.log(route.name.constructor);
-	return route.name.listing().then(function(list){
-		// console.log(route.template, list);
-		list.forEach(function(rsc){
-			var uri = route.gen(rsc);
-			resources.push(uri);
-		});
-	});
-})).then(function(){
+app.listing().then(function(resources){
 	// console.log(resources);
 	uploadResources(resources);
 });
@@ -81,6 +67,7 @@ function uploadResources(resources){
 			var path = uri.substring(base.length);
 			// But require that the filepath identifies a directory
 			if(path[0]!='/') return;
+			if(path[path.length-1]==='/') return;
 			var key = prefix + path.substring(1);
 			var req = {
 				url: uri,
@@ -89,7 +76,7 @@ function uploadResources(resources){
 			};
 			console.log(`${uri} -> ${key}`);
 			var res = new ReadResponse;
-			handleRequest(serverOptions, req, res);
+			handleRequest(app, req, res);
 			return new Promise(function(resolve, reject){
 				// If --pretend is specified, bail as late as possible (which is here)
 				if(args.pretend) return void resolve();
@@ -98,7 +85,8 @@ function uploadResources(resources){
 				});
 				res.on('end', function(){
 					var ct = res.getHeader('Content-Type');
-					if(res.statusCode===200 && ct.length){
+					var statusCode = res.statusCode || 200;
+					if(statusCode===200 && ct.length){
 						s3.putObject({
 							Bucket: args.bucket,
 							Key: key,
