@@ -7,7 +7,7 @@ const mapPromise = require('bluebird').map;
 const args = require('commander');
 const AWS = require('aws-sdk');
 const { handleRequest } = require('dive-httpd');
-const { ServerResponseTransform, ServerResponsePassThrough } = require('http-transform');
+const { ServerResponseTransform } = require('http-transform');
 
 process.on("unhandledRejection", function(){
 	console.error(arguments);
@@ -24,10 +24,32 @@ args.parse(process.argv);
 
 if (args.args.length !== 1) return void args.help();
 
+/*
+0. If fixScheme and fixAuthority is set:
+	 if fixAutority is nonempty, default the `base` to {scheme}://{authority}
+	 else, default the base to {scheme}:{authority}
+1. get AWS storage configuration to determine 404 file name
+	- if any, determine if error file shadows an existing resource
+	- If not, the render the default 404 route and upload it to this filename
+2. enumerate resources, and for each resource:
+	- Rewrite base URI to bucket+prefix
+	- Determine if file contents has changed
+	- If our last-modified is more recent than the remote's, upload new file
+	- (If available, use If-Unmodified-Since)
+*/
+
 const app = require(path.resolve(args.args[0]));
 
 const argbase = args.base && args.base[args.base.length-1]=='/' ? args.base.substring(0, args.base.length-1) : args.base ;
-const base = argbase || 'http://localhost';
+const defaultBase = (function(){
+	if(typeof app.fixedScheme==='string' && typeof app.fixedAuthority==='string'){
+		return app.fixedScheme + ':' + (app.fixedAuthority ? '//' : '') + app.fixedAuthority;
+	}else{
+		return 'http://localhost';
+	}
+})();
+const base = argbase || defaultBase;
+console.log('base:', base);
 const prefix = typeof args.key=='string' ? args.key : '';
 
 inherits(ReadResponse, ServerResponseTransform);
