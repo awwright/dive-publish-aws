@@ -1,4 +1,5 @@
-const http = require('http');
+"use strict";
+
 const path = require('path');
 const { inherits } = require('util');
 const mapPromise = require('bluebird').map;
