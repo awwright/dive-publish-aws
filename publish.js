@@ -1,13 +1,10 @@
 "use strict";
 
 const path = require('path');
-const { inherits } = require('util');
 const mapPromise = require('bluebird').map;
 
 const args = require('commander');
 const AWS = require('aws-sdk');
-const { handleRequest } = require('dive-httpd');
-const { ServerResponseTransform } = require('http-transform');
 
 process.on("unhandledRejection", function(){
 	console.error(arguments);
@@ -49,41 +46,16 @@ const defaultBase = (function(){
 	}
 })();
 const base = argbase || defaultBase;
-console.log('base:', base);
 const prefix = typeof args.key=='string' ? args.key : '';
 
-inherits(ReadResponse, ServerResponseTransform);
-function ReadResponse(options){
-	if(!(this instanceof ReadResponse)) return new ReadResponse(options);
-	ServerResponseTransform.call(this, options);
-	this.body = '';
-};
-ReadResponse.prototype.name = 'ReadResponse';
-ReadResponse.prototype._transformHead = function _transformHead(headers){ return headers; };
-ReadResponse.prototype._transform = function _transform(data, encoding, callback){
-	// Buffer incoming ReadResponse data
-	this.body += data;
-	callback(null, data, encoding);
-};
-ReadResponse.prototype._flush = function _flush(callback){
-	// Render the ReadResponse to HTML and push out trailers
-	callback();
-};
-
-app.listing().then(function(resources){
-	// console.log(resources);
-	uploadResources(resources);
-});
 
 if(args.profile){
-	var credentials = new AWS.SharedIniFileCredentials({profile: 'work-account'});
+	var credentials = new AWS.SharedIniFileCredentials({profile: args.profile});
 	AWS.config.credentials = credentials;
 }
 
-function uploadResources(resources){
-
+app.listing().then(function(resources){
 	var s3 = new AWS.S3();
-
 	s3.getBucketWebsite({Bucket: args.bucket}).promise().then(function(websiteInformation){
 		console.log(websiteInformation);
 		function writeResource(uri){
@@ -92,25 +64,22 @@ function uploadResources(resources){
 			if(path[0]!='/') return;
 			if(path[path.length-1]==='/') return;
 			var key = prefix + path.substring(1);
-			var req = {
-				url: uri,
-				method: 'GET',
-				headers: {},
-			};
 			console.log(`${uri} -> ${key}`);
-			var res = new ReadResponse;
-			handleRequest(app, req, res);
-			return new Promise(function(resolve, reject){
+			return app.prepare(uri).then(function(rsc){
 				// If --pretend is specified, bail as late as possible (which is here)
-				if(args.pretend) return void resolve();
-				res.on('data', function(){
-					// This is required or everything breaks for some reason
-				});
-				res.on('end', function(){
+				if(args.pretend){
+					return;
+				}
+				var req = {
+					headers: {
+						Accept: 'application/xhtml+xml',
+					}
+				};
+				return rsc.renderString(req).then(function(res){
 					var ct = res.getHeader('Content-Type');
 					var statusCode = res.statusCode || 200;
 					if(statusCode===200 && ct.length){
-						s3.putObject({
+						return s3.putObject({
 							Bucket: args.bucket,
 							Key: key,
 							Body: res.body,
@@ -118,7 +87,7 @@ function uploadResources(resources){
 						}).promise().then(function(op){
 							console.log(res.statusCode, uri, op);
 							return `${res.statusCode} ${uri}`;
-						}).then(resolve);
+						});
 					}else{
 						console.error('Status code '+res.statusCode);
 						reject([uri, res.statusCode]);
@@ -157,4 +126,4 @@ function uploadResources(resources){
 	}).catch(function(){
 		console.error('finally', arguments);
 	});
-}
+});
