@@ -98,31 +98,7 @@ app.listing().then(function(resources){
 			// Strip trailing slash, if any
 			return uri.substring(0, base.length)===base;
 		}), writeResource, {concurrency: 10});
-	//	return Promise.all(resources.filter(function(uri){
-	//		// Strip trailing slash, if any
-	//		return uri.substring(0, base.length)===base;
-	//	}).map(writeResource));
-	}).then(function(uploaded){
-		if(args.invalidate){
-			// Send an invalidation request to AWS CloudFront
-			// https://docs.aws.amazon.com/AWSJavaScriptSDK/latest/AWS/CloudFront.html#createInvalidation-property
-			var params = {
-				DistributionId: 'STRING_VALUE', /* required */
-				InvalidationBatch: { /* required */
-					CallerReference: 'STRING_VALUE', /* required */
-					Paths: { /* required */
-						Quantity: 0, /* required */
-						Items: uploaded.map(function(v){ return v }),
-					}
-				}
-			};
-			cloudfront.createInvalidation(params, function(err, data) {
-				if (err) console.log(err, err.stack); // an error occurred
-				else console.log(data);           // successful response
-			});
-			console.log('done', arguments);
-		}
-	}).catch(function(){
-		console.error('finally', arguments);
+	}).catch(function(err){
+		console.error(err);
 	});
 });
