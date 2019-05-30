@@ -1,10 +1,12 @@
 "use strict";
 
 const path = require('path');
-const mapPromise = require('bluebird').map;
 
 const args = require('commander');
 const AWS = require('aws-sdk');
+const https = require('https');
+
+const run = require('../index.js').run;
 
 process.on("unhandledRejection", function(){
 	console.error(arguments);
@@ -20,6 +22,9 @@ args.option('--pretend', 'Stop short of uploading, just print results');
 args.parse(process.argv);
 
 if (args.args.length !== 1) return void args.help();
+
+var s3bucket = args.bucket || process.env.AWS_S3_BUCKET;
+var awsProfile = args.profile || process.env.AWS_PROFILE;
 
 /*
 0. If fixScheme and fixAuthority is set:
@@ -48,57 +53,15 @@ const defaultBase = (function(){
 const base = argbase || defaultBase;
 const prefix = typeof args.key=='string' ? args.key : '';
 
-if(args.profile){
-	var credentials = new AWS.SharedIniFileCredentials({profile: args.profile});
-	AWS.config.credentials = credentials;
+if(awsProfile){
+	AWS.config.credentials = new AWS.SharedIniFileCredentials({profile: awsProfile});
 }
+const agent = new https.Agent({keepAlive: true});
+AWS.config.httpOptions.agent = agent;
+var S3 = new AWS.S3();
 
-app.listing().then(function(resources){
-	var s3 = new AWS.S3();
-	s3.getBucketWebsite({Bucket: args.bucket}).promise().then(function(websiteInformation){
-		console.log(websiteInformation);
-		function writeResource(uri){
-			var path = uri.substring(base.length);
-			// But require that the filepath identifies a directory
-			if(path[0]!='/') return;
-			if(path[path.length-1]==='/') return;
-			var key = prefix + path.substring(1);
-			console.log(`${uri} -> ${key}`);
-			return app.prepare(uri).then(function(rsc){
-				// If --pretend is specified, bail as late as possible (which is here)
-				if(args.pretend){
-					return;
-				}
-				var req = {
-					headers: {
-						Accept: 'application/xhtml+xml',
-					}
-				};
-				return rsc.renderString(req).then(function(res){
-					var ct = res.getHeader('Content-Type');
-					var statusCode = res.statusCode || 200;
-					if(statusCode===200 && ct.length){
-						return s3.putObject({
-							Bucket: args.bucket,
-							Key: key,
-							Body: res.body,
-							ContentType: ct,
-						}).promise().then(function(op){
-							console.log(res.statusCode, uri, op);
-							return `${res.statusCode} ${uri}`;
-						});
-					}else{
-						console.error('Status code '+res.statusCode);
-						reject([uri, res.statusCode]);
-					}
-				});
-			});
-		}
-		return mapPromise(resources.filter(function(uri){
-			// Strip trailing slash, if any
-			return uri.substring(0, base.length)===base;
-		}), writeResource, {concurrency: 10});
-	}).catch(function(err){
-		console.error(err);
-	});
+run(app, S3, s3bucket, base, prefix, args.pretend).catch(function(err){
+	console.error(err);
+}).then(function(){
+	agent.destroy();
 });
