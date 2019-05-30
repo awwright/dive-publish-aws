@@ -1,0 +1,29 @@
+{
+	"Version": "2012-10-17",
+	"Statement": [
+		 {
+			  "Sid": "Stmt1559161527000",
+			  "Effect": "Allow",
+			  "Action": [
+					"s3:ListObjects",
+					"s3:ListBucket",
+					"s3:GetBucketWebsite"
+			  ],
+			  "Resource": [
+					"arn:aws:s3:::${BUCKET}"
+			  ]
+		 },
+		 {
+			  "Sid": "Stmt1559161643000",
+			  "Effect": "Allow",
+			  "Action": [
+					"s3:GetObject",
+					"s3:ListObjects",
+					"s3:PutObject"
+			  ],
+			  "Resource": [
+					"arn:aws:s3:::${BUCKET}/*"
+			  ]
+		 }
+	]
+}
