@@ -48,7 +48,6 @@ const defaultBase = (function(){
 const base = argbase || defaultBase;
 const prefix = typeof args.key=='string' ? args.key : '';
 
-
 if(args.profile){
 	var credentials = new AWS.SharedIniFileCredentials({profile: args.profile});
 	AWS.config.credentials = credentials;
