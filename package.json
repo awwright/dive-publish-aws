@@ -3,14 +3,14 @@
   "description": "",
   "main": "index.js",
   "bin": {
-	  "dive-publish-aws": "./bin/dive-publish-aws"
+    "dive-publish-aws": "./bin/dive-publish-aws"
   },
   "author": "Austin Wright",
   "license": "Unlicense",
   "dependencies": {
-    "aws-sdk": "^2.422.0",
-    "bluebird": "^3.5.3",
+    "aws-sdk": "^2.468.0",
+    "bluebird": "^3.5.5",
     "commander": "^2.19.0",
-    "dive-httpd": "^0.0.18"
+    "dive-httpd": "^0.0.20"
   }
 }
